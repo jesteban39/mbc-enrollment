@@ -1,0 +1,6 @@
+{
+  "name": "day1_calculator",
+  "scripts": {
+    "dev": "dfx start --clean --background && dfx deploy"
+  }
+}
