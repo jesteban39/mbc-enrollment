@@ -1,4 +1,6 @@
 import Int "mo:base/Int";
+import Float "mo:base/Float";
+
 actor Calculator {
     // Step 1 -  Define a mutable variable called `counter`.
     stable var counter: Float = 0;
@@ -9,19 +11,24 @@ actor Calculator {
         return counter;
     };
     
-    // // Step 3 - Implement sub 
-    // public func sub(x : Float) : async Float {
-    //     // 
-    // };
+    // Step 3 - Implement sub 
+    public func sub(x : Float) : async Float {
+        counter := counter - x;
+        return counter;
+    };
     
-    // // Step 4 - Implement mul 
-    // public func mul(x : Float) : async Float {
-    //     // 
-    // };
+    // Step 4 - Implement mul 
+    public func mul(x : Float) : async Float {
+        counter := counter * x;
+        return counter;
+    };
     
-    // // Step 5 - Implement div 
+    // Step 5 - Implement div 
     // public func div(x : Float) : async ?Float {
-    //     // 
+    //     if (x != 0) {
+    //         counter := counter / x;
+    //         return counter; 
+    //     }
     // };
     
     // // Step 6 - Implement reset 
