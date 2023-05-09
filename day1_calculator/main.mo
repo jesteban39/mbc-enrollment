@@ -24,11 +24,11 @@ actor Calculator {
     };
     
     // Step 5 - Implement div 
-    // public func div(x : Float) : async ?Float {
-    //     if (x != 0) return 0;
-    //     counter := counter / x;
-    //     return counter;        
-    // };
+    public func div(x : Float) : async ?Float {
+        if (x == 0) return null;
+        counter := counter / x;
+        return ?counter;
+    };
     
     // Step 6 - Implement reset 
     public func reset(): async () {
