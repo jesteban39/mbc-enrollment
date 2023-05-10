@@ -1,7 +1,0 @@
-{
-  "name": "day1_calculator",
-  "scripts": {
-    "dev": "dfx start --clean --background && dfx deploy",
-    "git": "git add . && git commit -F commit.txt && git push && git status"
-  }
-}

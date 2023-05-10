@@ -19,6 +19,3 @@ dist/
 
 # environment variables
 .env
-
-#commit
-commit.txt
