@@ -1,0 +1,8 @@
+{
+    "canisters": {
+        "wall": {
+        "main": "main.mo",
+        "type": "motoko"
+        }
+    }
+}
