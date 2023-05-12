@@ -1,3 +1,4 @@
+
 import TrieMap "mo:base/TrieMap";
 import Trie "mo:base/Trie";
 import Result "mo:base/Result";
@@ -19,7 +20,7 @@ import BootcampLocalActor "BootcampLocalActor";
 actor class MotoCoin() {
   public type Account = Account.Account;
 
-  let ledger = TrieMap.TrieMap< Account, Nat >( Account.accountsEqual, Account.accountsHash);
+  let ledger = TrieMap.TrieMap<Account, Nat>(Account.accountsEqual, Account.accountsHash);
 
   // Returns the name of the token
   public query func name() : async Text {
@@ -51,30 +52,33 @@ actor class MotoCoin() {
     amount : Nat,
   ) : async Result.Result<(), Text> {
     let fromV = ledger.get(from);
-    if(fromV == null ) return #err("El remitente no existe");
-    let fromVR = Option.get(fromV,0);
-    if(fromVR < amount ) return #err("Saldo insuficiente");
+    if (fromV == null) return #err("That account doesn't exist");
+    let fromVR = Option.get(fromV, 0);
+    if (fromVR < amount) return #err("Not enough Tokens");
     let toV = ledger.get(to);
-    if(toV == null ) return #err("El destinatari no existe");
-    let toVR = Option.get(toV,0);
+    if (toV == null) return #err("That account doesn't exist");
+    let toVR = Option.get(toV, 0);
+
     let resF = ledger.replace(from, fromVR - amount);
     let resT = ledger.replace(to, toVR + amount);
 
-    if(Option.isSome(resF) and Option.isSome(resT)) return #ok();
+    if (Option.isSome(resF) and Option.isSome(resT)) return #ok();
 
-    return #err("Error interno");
+    return #err("Internal error");
   };
 
+  let invoiceCanister = actor("rww3b-zqaaa-aaaam-abioa-cai") : actor {
+    getAllStudentsPrincipal : shared () -> async [Principal];
+  };
+  
   // Airdrop 1000 MotoCoin to any student that is part of the Bootcamp.
   public func airdrop() : async Result.Result<(), Text> {
 
-    let motoScool : actor { getAllStudentsPrincipal: () -> async [Principal] } = actor ("rww3b-zqaaa-aaaam-abioa-cai");
-    //let motoScool = await BootcampLocalActor.BootcampLocalActor();
-    let allStudens = await motoScool.getAllStudentsPrincipal();
+    let allStudents = await invoiceCanister.getAllStudentsPrincipal();
 
-    if(allStudens.size() <= 0 ) return #err("NO hay estudiantes");
+    if (allStudents.size() <= 0) return #err("No Students");
 
-    let saveAccount = func (student: Principal): Nat {
+    let saveAccount = func(student : Principal) : Nat {
       let account = {
         owner = student;
         subaccount = null;
@@ -84,8 +88,8 @@ actor class MotoCoin() {
       return 0;
     };
 
-    let as = Array.map(allStudens, saveAccount);
+    let as = Array.map(allStudents, saveAccount);
 
-    return #ok(());
+    return #ok();
   };
 };

@@ -20,7 +20,7 @@ actor class StudentWall() {
 
 
   stable var messageId: Nat = 0;
-  let natHash = func (n: Nat ): Hash.Hash = Text.hash(Nat.toText(n)) ;
+  let natHash = func (n: Nat ): Hash.Hash = Text.hash(Nat.toText(n));
   var wall = HashMap.HashMap<Nat, Message>(5, Nat.equal, natHash);
 
   // Add a new message to the wall
