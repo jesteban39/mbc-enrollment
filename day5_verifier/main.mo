@@ -53,18 +53,16 @@ actor class Verifier() {
   // STEP 1 - END
 
   // STEP 2 - BEGIN
-  type calculatorInterface = Type.CalculatorInterface;
+  type CalculatorInterface = Type.CalculatorInterface;
   public type TestResult = Type.TestResult;
   public type TestError = Type.TestError;
+
+
 
   public func test(canisterId : Principal) : async TestResult {
 
     var value: Int = 0;
-    let calculator = actor (Principal.toText(canisterId)) : actor {
-      add : (n : Int) -> async Int;
-      sub : (n : Nat) -> async Int;
-      reset : () -> async Int;
-    };
+    let calculator = actor (Principal.toText(canisterId)) : CalculatorInterface;
     
     value := await calculator.add(3);
     if(value != 3) return #err(#UnexpectedValue("add not fun"));
