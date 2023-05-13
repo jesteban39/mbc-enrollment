@@ -68,26 +68,26 @@ actor class Verifier() {
   public type TestResult = Type.TestResult;
   public type TestError = Type.TestError;
 
-
-
   public func test(canisterId : Principal) : async TestResult {
 
-    var value: Int = 0;
-    let calculator : ?CalculatorInterface = ?actor(Principal.toText(canisterId));
+    try {
+      var value: Int = 0;
+      let calculator : CalculatorInterface = actor(Principal.toText(canisterId));
 
-    switch(calculator) {
-      case(?calculator) {
-        value := await calculator.add(3);
-        if(value != 3) return #err(#UnexpectedValue("add not fun"));
-        value := await calculator.sub(1);
-        if(value != 2) return #err(#UnexpectedValue("sub not fun"));
-        value := await calculator.reset();
-        if(value != 0) return #err(#UnexpectedValue("reset not fun"));
-      };
-      case(_) return #err(#UnexpectedError("the actor is not well defined"));
+      value := await calculator.reset();
+      if(value != 0) return #err(#UnexpectedValue("reset not fun"));
+      value := await calculator.add(3);
+      if(value != 3) return #err(#UnexpectedValue("add not fun"));
+      value := await calculator.sub(1);
+      if(value != 2) return #err(#UnexpectedValue("sub not fun"));
+      value := await calculator.reset();
+      if(value != 0) return #err(#UnexpectedValue("reset not fun"));
+      
+      return #ok();
+
+    } catch (e) {
+      return #err(#UnexpectedError(Error.message(e)));
     };
-    
-    return #ok();
   };
   // STEP - 2 END
 
@@ -130,6 +130,8 @@ actor class Verifier() {
 
   // STEP 4 - BEGIN
   public shared ({ caller }) func verifyWork(canisterId : Principal, p : Principal) : async Result.Result<Bool, Text> {
+    
+    
     return #err("not implemented");
   };
   // STEP 4 - END
