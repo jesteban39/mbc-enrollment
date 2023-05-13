@@ -25,7 +25,6 @@ actor class Verifier() {
   let natHash = func(n : Nat) : Hash.Hash = Text.hash(Nat.toText(n));
   let studentProfileStore = HashMap.HashMap<Principal, StudentProfile>(1, Principal.equal, Principal.hash);
 
-
   system func preupgrade() {
     entries := Iter.toArray(studentProfileStore.entries());
   };
@@ -100,12 +99,12 @@ actor class Verifier() {
   public func verifyOwnership(): async Result.Result<Bool, Text> {  //(canisterId : Principal, p : Principal) : async Result.Result<Bool, Text> {
 
     let replica = actor("r7inp-6aaaa-aaaaa-aaabq-cai") : actor {
-      canister_status : shared ({canister_id : Text}) -> async [Principal];
+      canister_status : shared ({canister_id : Principal}) -> async [Principal];
     };
 
     try {
       let controllers = await replica.canister_status({
-        canister_id = "g7o2b-fiaaa-aaaal-acima-cai"
+        canister_id = Principal.fromText("g7o2b-fiaaa-aaaal-acima-cai")
       });
       return #ok(true);
     } catch (e) {
