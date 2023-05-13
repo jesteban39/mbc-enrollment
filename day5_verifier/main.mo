@@ -98,25 +98,22 @@ actor class Verifier() {
 
     try {
       let replica = actor(Principal.toText(principalId)) : actor {
-        canister_status : ({canister_id : Principal}) -> async [Principal];
+        canister_status : ({canister_id : Principal}) -> async ();
       };
-      let status = await replica.canister_status({
+      await replica.canister_status({
         canister_id = canisterId
       });
-      return #err("not error call canister_status");
+      return #ok(true);
     } catch (e) {
       let message: Text = Error.message(e);
       if(Text.contains(message, #text "Only the controllers of the canister")){
         return #ok(false);
       };
-      if(Principal.toText(principalId) == "r7inp-6aaaa-aaaaa-aaabq-cai"){
-        return #ok(true);
-      };
       try {
         let replica = actor("r7inp-6aaaa-aaaaa-aaabq-cai") : actor {
-          canister_status : ({canister_id : Principal}) -> async [Principal];
+          canister_status : ({canister_id : Principal}) -> async ();
         };
-        let status: [Principal] = await replica.canister_status({
+        await replica.canister_status({
           canister_id = canisterId
         });
         return #err("not error call canister_status");
