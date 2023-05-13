@@ -91,27 +91,43 @@ actor class Verifier() {
   };
   // STEP - 2 END
 
-
-
   // STEP 3 - BEGIN
   // NOTE: Not possible to develop locally,
   // as actor "aaaa-aa" (aka the IC itself, exposed as an interface) does not exist locally
-  public func verifyOwnership(): async Result.Result<Bool, Text> {  //(canisterId : Principal, p : Principal) : async Result.Result<Bool, Text> {
-
-    let replica = actor("r7inp-6aaaa-aaaaa-aaabq-cai") : actor {
-      canister_status : shared ({canister_id : Principal}) -> async [Principal];
-    };
+  public func verifyOwnership(canisterId : Principal, principalId : Principal) : async Result.Result<Bool, Text> {
 
     try {
-      let controllers = await replica.canister_status({
-        canister_id = Principal.fromText("g7o2b-fiaaa-aaaal-acima-cai")
+      let replica = actor(Principal.toText(principalId)) : actor {
+        canister_status : ({canister_id : Principal}) -> async [Principal];
+      };
+      let status = await replica.canister_status({
+        canister_id = canisterId
       });
-      return #ok(true);
+      return #err("not error call canister_status");
     } catch (e) {
-      return #err(Error.message(e));
+      let message: Text = Error.message(e);
+      if(Text.contains(message, #text "Only the controllers of the canister")){
+        return #ok(false);
+      };
+      if(Principal.toText(principalId) == "r7inp-6aaaa-aaaaa-aaabq-cai"){
+        return #ok(true);
+      };
+      try {
+        let replica = actor("r7inp-6aaaa-aaaaa-aaabq-cai") : actor {
+          canister_status : ({canister_id : Principal}) -> async [Principal];
+        };
+        let status: [Principal] = await replica.canister_status({
+          canister_id = canisterId
+        });
+        return #err("not error call canister_status");
+      } catch (e) {
+        let message: Text = Error.message(e);
+        if(Text.contains(message, #text(Principal.toText(principalId)))){
+          return #ok(true);
+        };
+        return #ok(false);
+      };
     };
-    
-    return #err("not implemented");
   };
   // STEP 3 - END
 
