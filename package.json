@@ -1,0 +1,28 @@
+{
+  "name": "motoko-starter-template",
+  "version": "0.2.0",
+  "description": "Motoko Starter Template",
+  "keywords": [
+    "Internet Computer",
+    "Motoko",
+    "Canister"
+  ],
+  "scripts": {
+    "deploy:local": "dfx deploy --network=local",
+    "deploy:ic": "dfx deploy --network=ic",
+    "test": "mo-test --testmode interpreter --verbose",
+    "prettier": "npx prettier --write .",
+    "git": "git add . && echo commit_ENT_s_ENT && git commit -m -F << s && git push && git status"
+  },
+  "devDependencies": {
+    "mo-dev": "^0.7.1",
+    "prettier": "^2.8.1",
+    "prettier-plugin-motoko": "^0.5.2"
+  },
+  "engines": {
+    "node": "^12 || ^14 || ^16 || ^18"
+  },
+  "dependencies": {
+    "ic-mops": "^0.12.1"
+  }
+}

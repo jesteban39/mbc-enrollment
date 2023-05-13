@@ -1,6 +1,6 @@
 {
     "canisters": {
-        "homework": {
+        "verifier": {
         "main": "main.mo",
         "type": "motoko"
         }

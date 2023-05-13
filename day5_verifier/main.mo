@@ -10,18 +10,30 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Text "mo:base/Text";
 import Timer "mo:base/Timer";
+import Iter "mo:base/Iter";
 
 import HTTP "Http";
 import IC "Ic";
 import Type "Types";
 
 actor class Verifier() {
-  type StudentProfile = Type.StudentProfile;
-
-  let natHash = func(n : Nat) : Hash.Hash = Text.hash(Nat.toText(n));
-  var studentProfileStore = HashMap.HashMap<Principal, StudentProfile>(1, Principal.equal, Principal.hash);
 
   // STEP 1 - BEGIN
+  type StudentProfile = Type.StudentProfile;
+
+  stable var entries : [(Principal, StudentProfile)] = [];
+  let natHash = func(n : Nat) : Hash.Hash = Text.hash(Nat.toText(n));
+  let studentProfileStore = HashMap.HashMap<Principal, StudentProfile>(1, Principal.equal, Principal.hash);
+
+
+  system func preupgrade() {
+    entries := Iter.toArray(studentProfileStore.entries());
+  };
+
+  system func postupgrade() {
+    entries := [];
+  };
+  
   public shared ({ caller }) func addMyProfile(profile : StudentProfile) : async Result.Result<(), Text> {
     studentProfileStore.put(caller, profile);
     return #ok();
@@ -88,12 +100,12 @@ actor class Verifier() {
   public func verifyOwnership(): async Result.Result<Bool, Text> {  //(canisterId : Principal, p : Principal) : async Result.Result<Bool, Text> {
 
     let replica = actor("r7inp-6aaaa-aaaaa-aaabq-cai") : actor {
-      canister_status : shared ({canister_id : Principal}) -> async [Principal];
+      canister_status : shared ({canister_id : Text}) -> async [Principal];
     };
 
     try {
       let controllers = await replica.canister_status({
-        canister_id = Principal.fromText("rno2w-sqaaa-aaaaa-aaacq-cai")
+        canister_id = "g7o2b-fiaaa-aaaal-acima-cai"
       });
       return #ok(true);
     } catch (e) {
