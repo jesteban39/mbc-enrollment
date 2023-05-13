@@ -13,7 +13,7 @@ import Timer "mo:base/Timer";
 import Iter "mo:base/Iter";
 
 import HTTP "Http";
-import IC "Ic";
+import IC "ic";
 import Type "Types";
 
 actor class Verifier() {
@@ -50,6 +50,10 @@ actor class Verifier() {
   };
 
   public shared ({ caller }) func updateMyProfile(profile : StudentProfile) : async Result.Result<(), Text> {
+    if (Principal.isAnonymous(caller)) {
+      return #err("You must be Logged In");
+    };
+
     let student = studentProfileStore.replace(caller, profile);
     switch (student) {
       case (null) return #err("El estudiante no es esta registrado");
@@ -100,75 +104,58 @@ actor class Verifier() {
   public func verifyOwnership(canisterId : Principal, principalId : Principal) : async Result.Result<Bool, Text> {
 
     try {
-      let replica = actor(Principal.toText(principalId)) : actor {
-        canister_status : ({canister_id : Principal}) -> async ();
-      };
-      await replica.canister_status({
-        canister_id = canisterId
-      });
-      return #ok(true);
+      
+      let controllers = await IC.getCanisterControllers(canisterId);
+
+      var isOwner : ?Principal = Array.find<Principal>(controllers, func prin = prin == principalId);
+      
+      if (isOwner != null) return #ok(true);
+
+      return #ok(false);
     } catch (e) {
-      let message: Text = Error.message(e);
-      if(Text.contains(message, #text "Only the controllers of the canister")){
-        return #ok(false);
-      };
-      try {
-        let replica = actor("r7inp-6aaaa-aaaaa-aaabq-cai") : actor {
-          canister_status : ({canister_id : Principal}) -> async ();
-        };
-        await replica.canister_status({
-          canister_id = canisterId
-        });
-        return #err("not error call canister_status");
-      } catch (e) {
-        let message: Text = Error.message(e);
-        if(Text.contains(message, #text(Principal.toText(principalId)))){
-          return #ok(true);
-        };
-        return #ok(false);
-      };
-    };
+      return #err(Error.message(e));
+    }
   };
   // STEP 3 - END
 
   // STEP 4 - BEGIN
   public shared ({ caller }) func verifyWork(canisterId : Principal, principalId : Principal) : async Result.Result<Bool, Text> {
     
-    if( Principal.notEqual(caller, principalId)){
-      return #err("El estudiante no es esta registrado");
-    };
-
     try {
 
-      switch (await verifyOwnership(canisterId, principalId)) {
-        case (#ok(true)) {};
-        case (#ok(false)) return #err("El estudiante no es el controlador del canister");
-        case (_) return #err("Error ejecutando verifyOwnership");
+      if (Principal.isAnonymous(caller)) {
+        return #err("You must be Logged In");
       };
       
       switch(await test(canisterId)) {
-        case(#err(TextError)) return #err("error");
+        case(#err(TextError)) return #err("The current work has no passed the tests");
         case(#ok()) {};
+      };
+
+      switch (await verifyOwnership(canisterId, principalId)) {
+        case (#ok(true)) {};
+        case (#ok(false)) return #err("The received work owner does not match with the received principal");
+        case (_) return #err("Cannot verify the project");
       };
 
       let student = studentProfileStore.get(principalId);
       switch (student) {
-        case (null) return #err("El estudiante no es esta registrado");
+        case (null) return #err("The received principal does not belongs to a registered student");
         case (?student) {
           let approved: StudentProfile = {
             name = student.name;
             Team = student.Team;
             graduate = true;
           };
-          let newStudent = studentProfileStore.replace(caller, approved);
-          switch (newStudent) {
-            case (null) return #err("El estudiante no es esta registrado");
+          
+          switch (studentProfileStore.replace(caller, approved)) {
+            case (null) return #err("The received principal does not belongs to a registered student");
             case (?student) return #ok(true);
           };
         };
       };
 
-      return #err("error no controlado");
+      return #err("Cannot verify the project");
 
     } catch (e) {
       return #err(Error.message(e));
