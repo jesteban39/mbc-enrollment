@@ -23,13 +23,16 @@ actor class Verifier() {
 
   stable var entries : [(Principal, StudentProfile)] = [];
   let natHash = func(n : Nat) : Hash.Hash = Text.hash(Nat.toText(n));
-  let studentProfileStore = HashMap.HashMap<Principal, StudentProfile>(1, Principal.equal, Principal.hash);
+  let studentProfileStore = HashMap.HashMap<Principal, StudentProfile>(0, Principal.equal, Principal.hash);
 
   system func preupgrade() {
     entries := Iter.toArray(studentProfileStore.entries());
   };
 
   system func postupgrade() {
+    for (it in Iter.fromArray(entries)) {
+      studentProfileStore.put(it);
+    };
     entries := [];
   };
   
@@ -38,8 +41,8 @@ actor class Verifier() {
     return #ok();
   };
 
-  public shared ({ caller }) func seeAProfile(p : Principal) : async Result.Result<StudentProfile, Text> {
-    let student = studentProfileStore.get(p);
+  public shared ({ caller }) func seeAProfile(principalId : Principal) : async Result.Result<StudentProfile, Text> {
+    let student = studentProfileStore.get(principalId);
     switch (student) {
       case (null) return #err("El estudiante no es esta registrado");
       case (?student) return #ok(student);
@@ -72,7 +75,7 @@ actor class Verifier() {
 
     try {
       var value: Int = 0;
-      let calculator : CalculatorInterface = actor(Principal.toText(canisterId));
+      let calculator = actor(Principal.toText(canisterId)): CalculatorInterface;
 
       value := await calculator.reset();
       if(value != 0) return #err(#UnexpectedValue("reset not fun"));
@@ -129,10 +132,47 @@ actor class Verifier() {
   // STEP 3 - END
 
   // STEP 4 - BEGIN
-  public shared ({ caller }) func verifyWork(canisterId : Principal, p : Principal) : async Result.Result<Bool, Text> {
+  public shared ({ caller }) func verifyWork(canisterId : Principal, principalId : Principal) : async Result.Result<Bool, Text> {
     
-    
-    return #err("not implemented");
+    if( Principal.notEqual(caller, principalId)){
+      return #err("El estudiante no es esta registrado");
+    };
+
+    try {
+
+      switch (await verifyOwnership(canisterId, principalId)) {
+        case (#ok(true)) {};
+        case (#ok(false)) return #err("El estudiante no es el controlador del canister");
+        case (_) return #err("Error ejecutando verifyOwnership");
+      };
+      
+      switch(await test(canisterId)) {
+        case(#err(TextError)) return #err("error");
+        case(#ok()) {};
+      };
+
+      let student = studentProfileStore.get(principalId);
+      switch (student) {
+        case (null) return #err("El estudiante no es esta registrado");
+        case (?student) {
+          let approved: StudentProfile = {
+            name = student.name;
+            Team = student.Team;
+            graduate = true;
+          };
+          let newStudent = studentProfileStore.replace(caller, approved);
+          switch (newStudent) {
+            case (null) return #err("El estudiante no es esta registrado");
+            case (?student) return #ok(true);
+          };
+        };
+      };
+
+      return #err("error no controlado");
+
+    } catch (e) {
+      return #err(Error.message(e));
+    };
   };
   // STEP 4 - END
 
