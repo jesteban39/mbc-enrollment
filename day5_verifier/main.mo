@@ -62,22 +62,44 @@ actor class Verifier() {
   public func test(canisterId : Principal) : async TestResult {
 
     var value: Int = 0;
-    let calculator = actor (Principal.toText(canisterId)) : CalculatorInterface;
+    let calculator : ?CalculatorInterface = ?actor(Principal.toText(canisterId));
+
+    switch(calculator) {
+      case(?calculator) {
+        value := await calculator.add(3);
+        if(value != 3) return #err(#UnexpectedValue("add not fun"));
+        value := await calculator.sub(1);
+        if(value != 2) return #err(#UnexpectedValue("sub not fun"));
+        value := await calculator.reset();
+        if(value != 0) return #err(#UnexpectedValue("reset not fun"));
+      };
+      case(_) return #err(#UnexpectedError("the actor is not well defined"));
+    };
     
-    value := await calculator.add(3);
-    if(value != 3) return #err(#UnexpectedValue("add not fun"));
-    value := await calculator.sub(1);
-    if(value != 2) return #err(#UnexpectedValue("sub not fun"));
-    value := await calculator.reset();
-    if(value != 0) return #err(#UnexpectedValue("reset not fun"));
     return #ok();
   };
   // STEP - 2 END
 
+
+
   // STEP 3 - BEGIN
   // NOTE: Not possible to develop locally,
   // as actor "aaaa-aa" (aka the IC itself, exposed as an interface) does not exist locally
-  public func verifyOwnership(canisterId : Principal, p : Principal) : async Result.Result<Bool, Text> {
+  public func verifyOwnership(): async Result.Result<Bool, Text> {  //(canisterId : Principal, p : Principal) : async Result.Result<Bool, Text> {
+
+    let replica = actor("r7inp-6aaaa-aaaaa-aaabq-cai") : actor {
+      canister_status : shared ({canister_id : Principal}) -> async [Principal];
+    };
+
+    try {
+      let controllers = await replica.canister_status({
+        canister_id = Principal.fromText("rno2w-sqaaa-aaaaa-aaacq-cai")
+      });
+      return #ok(true);
+    } catch (e) {
+      return #err(Error.message(e));
+    };
+    
     return #err("not implemented");
   };
   // STEP 3 - END
