@@ -12,7 +12,7 @@
     "deploy:ic": "dfx deploy --network=ic",
     "test": "mo-test --testmode interpreter --verbose",
     "prettier": "npx prettier --write .",
-    "git": "git add . && echo commit_ENT_s_ENT && git commit -m -F << s && git push && git status"
+    "git": "git add . && echo \"type commit Ctrl+D for save:\" && cat > commit.txt && git commit -F commit.txt && rm -rf commit.txt && git push && git status"
   },
   "devDependencies": {
     "mo-dev": "^0.7.1",

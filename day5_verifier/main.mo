@@ -118,7 +118,6 @@ actor class Verifier() {
   public func verifyOwnership(canisterId : Principal, principalId : Principal) : async Result.Result<Bool, Text> {
 
     try {
-      
       let controllers = await IC.getCanisterControllers(canisterId);
 
       var isOwner : ?Principal = Array.find<Principal>(controllers, func prin = prin == principalId);
