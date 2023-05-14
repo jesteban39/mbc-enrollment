@@ -1,180 +1,203 @@
-import HashMap "mo:base/HashMap";
-import Principal "mo:base/Principal";
-import Hash "mo:base/Hash";
-import Error "mo:base/Error";
-import Result "mo:base/Result";
 import Array "mo:base/Array";
-import Text "mo:base/Text";
-import Nat "mo:base/Nat";
-import Int "mo:base/Int";
-import Timer "mo:base/Timer";
 import Buffer "mo:base/Buffer";
+import Debug "mo:base/Debug";
+import Error "mo:base/Error";
+import Hash "mo:base/Hash";
+import HashMap "mo:base/HashMap";
+import Int "mo:base/Int";
+import Nat "mo:base/Nat";
+import Principal "mo:base/Principal";
+import Result "mo:base/Result";
+import Text "mo:base/Text";
+import Timer "mo:base/Timer";
+import Iter "mo:base/Iter";
 
+import HTTP "Http";
+import IC "ic";
 import Type "Types";
-import Ic "ic";
 
 actor class Verifier() {
-  type StudentProfile = Type.StudentProfile;
-
-  let studentProfileStore = HashMap.HashMap<Principal, StudentProfile>(0, Principal.equal, Principal.hash);
-
-  private func isRegistered(p : Principal) : Bool {
-    var xProfile : ?StudentProfile = studentProfileStore.get(p);
-
-    switch (xProfile) {
-      case null { 
-        return false;
-      };
-
-      case (?profile) {
-        return true
-      };
-    }
-  };
 
   // STEP 1 - BEGIN
+  type StudentProfile = Type.StudentProfile;
 
-  public shared ({ caller }) func addMyProfile(profile : StudentProfile) : async Result.Result<(), Text> {
-    if (Principal.isAnonymous(caller)) {
-      return #err "You must be Logged In"
-    };
+  stable var entries : [(Principal, StudentProfile)] = [];
+  let natHash = func(n : Nat) : Hash.Hash = Text.hash(Nat.toText(n));
+  let studentProfileStore = HashMap.HashMap<Principal, StudentProfile>(0, Principal.equal, Principal.hash);
 
-    if (isRegistered(caller)) {
-      return #err ("You are already registered (" # Principal.toText(caller) # ") ")
-    };
-
-    studentProfileStore.put(caller, profile);
-    return #ok ();
+  system func preupgrade() {
+    entries := Iter.toArray(studentProfileStore.entries());
   };
 
-  public shared query ({ caller }) func seeAProfile(p : Principal) : async Result.Result<StudentProfile, Text> {
-    var xProfile : ?StudentProfile = studentProfileStore.get(p);
+  system func postupgrade() {
+    for (it in Iter.fromArray(entries)) {
+      studentProfileStore.put(it);
+    };
+    entries := [];
+  };
+  
+  public shared ({ caller }) func addMyProfile(profile : StudentProfile) : async Result.Result<(), Text> {
+    
+    if (Principal.isAnonymous(caller)) return #err("You must be Logged In");
 
-    switch (xProfile) {
-      case null { 
-        return #err ("There is no profile registered with the received account");
+    switch (studentProfileStore.get(caller)) {
+      case (null) {
+        studentProfileStore.put(caller, profile);
+        return #ok();
       };
+      case (?StudentProfile) return #err("You are registered");
+    };
+  };
 
-      case (?profile) {
-        return #ok profile
-      };
-    }
+  public shared ({ caller }) func seeAProfile(principalId : Principal) : async Result.Result<StudentProfile, Text> {
+    let student = studentProfileStore.get(principalId);
+    switch (student) {
+      case (null) return #err("El estudiante no es esta registrado");
+      case (?student) return #ok(student);
+    };
   };
 
   public shared ({ caller }) func updateMyProfile(profile : StudentProfile) : async Result.Result<(), Text> {
-    if (Principal.isAnonymous(caller)) {
-      return #err "You must be Logged In"
-    };
     
-    if (not isRegistered(caller)) {
-      return #err ("You are not registered");
+    if (Principal.isAnonymous(caller)) return #err("You must be Logged In");
+
+    switch (studentProfileStore.get(caller)) {
+      case (?StudentProfile) {
+        ignore studentProfileStore.replace(caller, profile);
+        return #ok();
+      };
+      case (null) return #err("You are not registered");
     };
-
-    ignore studentProfileStore.replace(caller, profile);
-
-    return #ok ();
   };
 
   public shared ({ caller }) func deleteMyProfile() : async Result.Result<(), Text> {
-    if (Principal.isAnonymous(caller)) {
-      return #err "You must be Logged In"
-    };
     
-    if (not isRegistered(caller)) {
-      return #err ("You are not registered");
+    if (Principal.isAnonymous(caller)) return #err("You must be Logged In");
+
+    switch (studentProfileStore.get(caller)) {
+      case (?StudentProfile) {
+        ignore studentProfileStore.remove(caller);
+        return #ok();
+      };
+      case (null) return #err("You are not registered");
     };
-
-    studentProfileStore.delete(caller);
-
-    return #ok ();
   };
+  // STEP 1 - END
 
   // STEP 2 - BEGIN
+  type CalculatorInterface = Type.CalculatorInterface;
   public type TestResult = Type.TestResult;
   public type TestError = Type.TestError;
 
   public func test(canisterId : Principal) : async TestResult {
-    let calculatorInterface = actor(Principal.toText(canisterId)) : actor {
-      reset : shared () -> async Int;
-      add : shared (x : Nat) -> async Int;
-      sub : shared (x : Nat) -> async Int;
-    };
 
     try {
-      let x1 : Int = await calculatorInterface.reset();
-      if (x1 != 0) {
-        return #err(#UnexpectedValue("After a reset, counter should be 0!"));
-      };
+      var value: Int = 0;
+      let calculator = actor(Principal.toText(canisterId)): CalculatorInterface;
 
-      let x2 : Int = await calculatorInterface.add(2);
-      if (x2 != 2) {
-        return #err(#UnexpectedValue("After 0 + 2, counter should be 2!"));
-      };
+      value := await calculator.reset();
+      if(value != 0) return #err(#UnexpectedValue("reset not fun"));
+      value := await calculator.add(3);
+      if(value != 3) return #err(#UnexpectedValue("add not fun"));
+      value := await calculator.sub(1);
+      if(value != 2) return #err(#UnexpectedValue("sub not fun"));
+      value := await calculator.reset();
+      if(value != 0) return #err(#UnexpectedValue("reset not fun"));
+      
+      return #ok();
 
-      let x3 : Int = await calculatorInterface.sub(2);
-      if (x3 != 0) {
-        return #err(#UnexpectedValue("After 2 - 2, counter should be 0!"));
-      };
-
-      return #ok ();
     } catch (e) {
-      return #err(#UnexpectedError("Something went wrong!"));
-    } 
+      return #err(#UnexpectedError(Error.message(e)));
+    };
   };
-
+  // STEP - 2 END
 
   // STEP 3 - BEGIN
-  public func verifyOwnership(canisterId : Principal, p : Principal) : async Bool {
+  // NOTE: Not possible to develop locally,
+  // as actor "aaaa-aa" (aka the IC itself, exposed as an interface) does not exist locally
+  public func verifyOwnership(canisterId : Principal, principalId : Principal) : async Result.Result<Bool, Text> {
+
     try {
-      let controllers = await Ic.getCanisterControllers(canisterId);
-
-      var isOwner : ?Principal = Array.find<Principal>(controllers, func prin = prin == p);
       
-      if (isOwner != null) {
-        return true;
-      };
+      let controllers = await IC.getCanisterControllers(canisterId);
 
-      return false;
+      var isOwner : ?Principal = Array.find<Principal>(controllers, func prin = prin == principalId);
+      
+      if (isOwner != null) return #ok(true);
+
+      return #ok(false);
     } catch (e) {
-      return false;
+      return #err(Error.message(e));
     }
   };
+  // STEP 3 - END
 
   // STEP 4 - BEGIN
-  public shared ({ caller }) func verifyWork(canisterId : Principal, p : Principal) : async Result.Result<(), Text> {
+  public shared ({ caller }) func verifyWork(canisterId : Principal, principalId : Principal) : async Result.Result<Bool, Text> {
+    
     try {
-      let isApproved = await test(canisterId); 
 
-      if (isApproved != #ok) {
-        return #err("The current work has no passed the tests");
+      if (Principal.isAnonymous(caller)) {
+        return #err("You must be Logged In");
+      };
+      
+      switch(await test(canisterId)) {
+        case(#err(TextError)) return #err("The current work has no passed the tests");
+        case(#ok()) {};
       };
 
-      let isOwner = await verifyOwnership(canisterId, p); 
-
-      if (not isOwner) {
-        return #err ("The received work owner does not match with the received principal");
+      switch (await verifyOwnership(canisterId, principalId)) {
+        case (#ok(true)) {};
+        case (#ok(false)) return #err("The received work owner does not match with the received principal");
+        case (_) return #err("Cannot verify the project");
       };
 
-      var xProfile : ?StudentProfile = studentProfileStore.get(p);
-
-      switch (xProfile) {
-        case null { 
-          return #err("The received principal does not belongs to a registered student");
-        };
-
-        case (?profile) {
-          var updatedStudent = {
-            name = profile.name;
+      let student = studentProfileStore.get(principalId);
+      switch (student) {
+        case (null) return #err("The received principal does not belongs to a registered student");
+        case (?student) {
+          let approved: StudentProfile = {
+            name = student.name;
+            team = student.team;
             graduate = true;
-            team = profile.team;
           };
-
-          ignore studentProfileStore.replace(p, updatedStudent);
-          return #ok ();      
-        }
+          
+          switch (studentProfileStore.replace(caller, approved)) {
+            case (null) return #err("The received principal does not belongs to a registered student");
+            case (?student) return #ok(true);
+          };
+        };
       };
-    } catch(e) {
+
       return #err("Cannot verify the project");
-    }
+
+    } catch (e) {
+      return #err(Error.message(e));
+    };
   };
+  // STEP 4 - END
+
+  // STEP 5 - BEGIN
+  public type HttpRequest = HTTP.HttpRequest;
+  public type HttpResponse = HTTP.HttpResponse;
+
+  // NOTE: Not possible to develop locally,
+  // as Timer is not running on a local replica
+  public func activateGraduation() : async () {
+    return ();
+  };
+
+  public func deactivateGraduation() : async () {
+    return ();
+  };
+
+  public query func http_request(request : HttpRequest) : async HttpResponse {
+    return ({
+      status_code = 200;
+      headers = [];
+      body = Text.encodeUtf8("");
+      streaming_strategy = null;
+    });
+  };
+  // STEP 5 - END
 };
